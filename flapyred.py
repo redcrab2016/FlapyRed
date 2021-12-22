@@ -1,11 +1,11 @@
 import pygame as pg
 from itertools import cycle
 import random
-import sys
 from enum import Enum
 from pygame.locals import *
 
-class Flappy():
+
+class Flappy:
     class GameState(Enum):
         INIT = 0
         PREPARE = 1
@@ -19,56 +19,6 @@ class Flappy():
         ACTION = 1
         EXIT = 99
 
-    FPS = 30
-    SCREENWIDTH = 288
-    SCREENHEIGHT = 512
-    PIPEGAPSIZE = 100  # gap between upper and lower part of pipe
-    BASEY = SCREENHEIGHT * 0.79
-    # image, sound and hitmask  dicts
-    IMAGES, SOUNDS, HITMASKS = {}, {}, {}
-
-    # list of all possible players (tuple of 3 positions of flap)
-    PLAYERS_LIST = (
-        # red bird
-        (
-            'assets/sprites/redbird-upflap.png',
-            'assets/sprites/redbird-midflap.png',
-            'assets/sprites/redbird-downflap.png',
-        ),
-        # blue bird
-        (
-            'assets/sprites/bluebird-upflap.png',
-            'assets/sprites/bluebird-midflap.png',
-            'assets/sprites/bluebird-downflap.png',
-        ),
-        # yellow bird
-        (
-            'assets/sprites/yellowbird-upflap.png',
-            'assets/sprites/yellowbird-midflap.png',
-            'assets/sprites/yellowbird-downflap.png',
-        ),
-    )
-
-    # list of backgrounds
-    BACKGROUNDS_LIST = (
-        'assets/sprites/background-day.png',
-        'assets/sprites/background-night.png',
-    )
-
-    # list of pipes
-    PIPES_LIST = (
-        'assets/sprites/pipe-green.png',
-        'assets/sprites/pipe-red.png',
-    )
-
-    GAME_STATE = GameState.INIT
-    GAME_STATE_TICK = 0
-    GAME_HANDLER = {}
-    GAME_INPUT = GameInput.IDLE
-
-    SCREEN = None
-    FPSCLOCK = None
-
     def __init__(self):
         self.playerHeight = self.crashTest = self.playerFlapped = self.pipeVelX = self.playerVelY = None
         self.playerFlapAcc = self.playerRotThr = self.playerVelRot = self.playerRot = self.playerAccY = None
@@ -76,15 +26,66 @@ class Flappy():
         self.newPipe1 = self.score = self.basex = self.loopIter = self.deltay = self.baseShift = None
         self.messagey = self.messagex = self.playery = self.playerx = self.playerIndexGen = self.playerIndex = None
 
-    def main(self):
+        self.FPS = 30
+        self.SCREENWIDTH = 288
+        self.SCREENHEIGHT = 512
+        self.PIPEGAPSIZE = 100  # gap between upper and lower part of pipe
+        self.BASEY = self.SCREENHEIGHT * 0.79
+        # image, sound and hitmask  dicts
+        self.IMAGES, self.SOUNDS, self.HITMASKS = {}, {}, {}
+
+        # list of all possible players (tuple of 3 positions of flap)
+        self.PLAYERS_LIST = (
+            # red bird
+            (
+                'assets/sprites/redbird-upflap.png',
+                'assets/sprites/redbird-midflap.png',
+                'assets/sprites/redbird-downflap.png',
+            ),
+            # blue bird
+            (
+                'assets/sprites/bluebird-upflap.png',
+                'assets/sprites/bluebird-midflap.png',
+                'assets/sprites/bluebird-downflap.png',
+            ),
+            # yellow bird
+            (
+                'assets/sprites/yellowbird-upflap.png',
+                'assets/sprites/yellowbird-midflap.png',
+                'assets/sprites/yellowbird-downflap.png',
+            ),
+        )
+
+        # list of backgrounds
+        self.BACKGROUNDS_LIST = (
+            'assets/sprites/background-day.png',
+            'assets/sprites/background-night.png',
+        )
+
+        # list of pipes
+        self.PIPES_LIST = (
+            'assets/sprites/pipe-green.png',
+            'assets/sprites/pipe-red.png',
+        )
+
+        self.GAME_STATE = Flappy.GameState.INIT
+        self.GAME_STATE_TICK = 0
+        self.GAME_HANDLER = {}
+        self.GAME_INPUT = Flappy.GameInput.IDLE
+
+        self.SCREEN = None
+        self.FPSCLOCK = None
+
         self.GAME_HANDLER = {
-            Flappy.GameState.INIT:      Flappy.game_init,
-            Flappy.GameState.PREPARE:   Flappy.game_prepare,
-            Flappy.GameState.WELCOME:   Flappy.game_welcome,
-            Flappy.GameState.FLY:       Flappy.game_fly,
-            Flappy.GameState.GAMEOVER:  Flappy.game_gameover,
-            Flappy.GameState.EXIT:      Flappy.game_exit
+            Flappy.GameState.INIT: Flappy.game_state_init,
+            Flappy.GameState.PREPARE: Flappy.game_state_prepare,
+            Flappy.GameState.WELCOME: Flappy.game_state_welcome,
+            Flappy.GameState.FLY: Flappy.game_state_play,
+            Flappy.GameState.GAMEOVER: Flappy.game_state_gameover,
+            Flappy.GameState.EXIT: Flappy.game_state_exit
         }
+
+    def play(self):
         self.game_next_state(Flappy.GameState.INIT)
         """ Main Game loop"""
         while self.GAME_STATE != Flappy.GameState.EXIT:
@@ -125,7 +126,7 @@ class Flappy():
         except:
             pass
 
-    def game_init(self):
+    def game_state_init(self):
         """STATE INIT : prepare all needed resource and prepare the SDL context"""
         print("game init")
         pg.init()
@@ -161,7 +162,7 @@ class Flappy():
         self.SOUNDS['wing'] = pg.mixer.Sound('assets/audio/wing.ogg')
         self.game_next_state(Flappy.GameState.PREPARE)
 
-    def game_prepare(self):
+    def game_state_prepare(self):
         """STATE PREPARE : prepare the context for a new game play iteration"""
         print("game prepare")
         # select random background sprites
@@ -198,7 +199,7 @@ class Flappy():
         )
         self.game_next_state(Flappy.GameState.WELCOME)
 
-    def game_welcome(self):
+    def game_state_welcome(self):
         """STATE: WELCOME : Welcome scene"""
         # First interation in current state
         if self.is_game_start_state():
@@ -228,12 +229,9 @@ class Flappy():
             self.playerIndex = next(self.playerIndexGen)
         self.loopIter = (self.loopIter + 1) % 30
         self.basex = -((-self.basex + 4) % self.baseShift)
-        # deltay = saw_45°_of_amplitude_n(x)  (from -n to n)
-        n = 8
-        x = self.GAME_STATE_TICK
-        xmod2n = x % (2 * n)
-        xby2nmod2 = int(x / (2 * n)) % 2
-        self.deltay = (xmod2n - n) * (-xby2nmod2 + 1) + (n - xmod2n) * xby2nmod2
+        amplitude = 8
+        framenum = self.GAME_STATE_TICK
+        self.deltay = (framenum % (2 * amplitude) - amplitude) * (-2 * (int(framenum / (2 * amplitude)) % 2) + 1)
 
         # draw sprites
         self.SCREEN.blit(self.IMAGES['background'], (0, 0))
@@ -242,8 +240,8 @@ class Flappy():
         self.SCREEN.blit(self.IMAGES['message'], (self.messagex, self.messagey))
         self.SCREEN.blit(self.IMAGES['base'], (self.basex, self.BASEY))
 
-    def game_fly(self):
-        """STATE FLY : The game scene itself"""
+    def game_state_play(self):
+        """STATE PLAY : The game scene itself"""
         # First interation in current state
         if self.is_game_start_state():
             print("game fly")
@@ -359,7 +357,7 @@ class Flappy():
         playerSurface = pg.transform.rotate(self.IMAGES['player'][self.playerIndex], visibleRot)
         self.SCREEN.blit(playerSurface, (self.playerx, self.playery))
 
-    def game_gameover(self):
+    def game_state_gameover(self):
         """STATE GAME OVER : Game Over Scene"""
         if self.is_game_start_state():
             print("game over")
@@ -405,13 +403,10 @@ class Flappy():
         self.SCREEN.blit(playerSurface, (self.playerx, self.playery))
         self.SCREEN.blit(self.IMAGES['gameover'], (50, 180))
 
-    def game_exit(self):
+    def game_state_exit(self):
         """STATE EXIT : End of the game. No more play. Release SDL context"""
         print("game exit")
         pg.quit()
-
-    """
-    Here below are the utility functions"""
 
     def showScore(self, score):
         """displays score in center of screen"""
@@ -501,9 +496,7 @@ class Flappy():
         return mask
 
 
-
-
 if __name__ == '__main__':
     print("Get ready")
-    Flappy().main()
+    Flappy().play()
     print("Bye bye")
